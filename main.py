@@ -7,7 +7,7 @@ import google.generativeai as genai
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, ConcatenateVideoClip
+from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 import edge_tts
 import asyncio
 
@@ -114,7 +114,7 @@ def make_video(script_data):
             final_clips.append(clip)
             current_duration += clip.duration
 
-    final_video = ConcatenateVideoClip(final_clips)
+    final_video = concatenate_videoclips(final_clips)
     final_video = final_video.set_audio(audio)
     final_video = final_video.subclip(0, audio.duration)
     
