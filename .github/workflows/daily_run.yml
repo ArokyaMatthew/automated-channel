@@ -14,33 +14,29 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          # Upgraded to 3.11 to remove the 'FutureWarning'
           python-version: '3.11'
 
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
-          
-          # 1. Force remove any existing moviepy to prevent version conflicts
+          # Critical fix for ImageMagick on Ubuntu
+          sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
+
+      - name: Install Python Dependencies
+        run: |
           pip uninstall -y moviepy
-          
-          # 2. Install the specific compatible versions
           pip install "moviepy==1.0.3" "decorator==4.4.2" "pillow==9.5.0"
           pip install google-generativeai edge-tts requests google-auth-oauthlib google-api-python-client imageio-ffmpeg
-          
-          # 3. Fix for ImageMagick policy (Required for TextClip to work)
-          sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
 
       - name: Run Video Generator
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          YOUTUBE_TOKEN: ${{ secrets.YOUTUBE_TOKEN }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
         run: python main.py
 
       - name: Upload Video Artifact
+        if: always() # This ensures it tries to upload even if the script failed
         uses: actions/upload-artifact@v4
         with:
           name: test-video-result
