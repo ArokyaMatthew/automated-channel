@@ -20,7 +20,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
-          # Critical fix for ImageMagick on Ubuntu
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
 
       - name: Install Python Dependencies
@@ -36,7 +35,7 @@ jobs:
         run: python main.py
 
       - name: Upload Video Artifact
-        if: always() # This ensures it tries to upload even if the script failed
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-video-result
