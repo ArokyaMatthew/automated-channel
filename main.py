@@ -14,7 +14,8 @@ genai.configure(api_key=GEMINI_KEY)
 
 # --- 1. THE BRAIN (Generate Script) ---
 def get_script():
-    model = genai.GenerativeModel('gemini-pro')
+    # UPDATED MODEL: gemini-1.5-flash is fast, stable, and free
+    model = genai.GenerativeModel('gemini-1.5-flash')
     prompt = """
     Create a 30-second YouTube Short script about a fascinating random fact (Space, History, or Nature).
     Return ONLY valid JSON with this format:
@@ -28,7 +29,12 @@ def get_script():
     """
     try:
         response = model.generate_content(prompt)
-        text = response.text.replace('```json', '').replace('```', '').strip()
+        # Cleaning the response to ensure it's pure JSON
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text[7:-3]
+        elif text.startswith("```"):
+            text = text[3:-3]
         return json.loads(text)
     except Exception as e:
         print(f"Error generating script: {e}")
@@ -43,6 +49,7 @@ async def generate_voice(text, filename="voice.mp3"):
 def get_videos(keywords):
     clips = []
     headers = {"Authorization": PEXELS_KEY}
+    temp_files = []
     
     for query in keywords:
         url = f"https://api.pexels.com/videos/search?query={query}&per_page=1&orientation=portrait"
@@ -57,6 +64,7 @@ def get_videos(keywords):
             with open(filename, 'wb') as f:
                 f.write(requests.get(video_url).content)
             
+            temp_files.append(filename)
             clip = VideoFileClip(filename).resize(height=1920)
             if clip.w > 1080:
                 clip = clip.crop(x1=clip.w/2 - 540, width=1080, height=1920)
@@ -64,18 +72,18 @@ def get_videos(keywords):
             if len(clips) >= 3: break 
         except Exception as e:
             print(f"Error downloading {query}: {e}")
-    return clips
+    return clips, temp_files
 
 # --- 4. THE EDITOR (MoviePy) ---
 def make_video(script_data):
     if not script_data: return None
     
-    # A. Generate Audio
+    # A. Audio
     asyncio.run(generate_voice(script_data['script']))
     audio = AudioFileClip("voice.mp3")
     
-    # B. Get Video Clips
-    clips = get_videos(script_data['keywords'])
+    # B. Video
+    clips, temp_files = get_videos(script_data['keywords'])
     if not clips: return None
 
     # C. Assembly
@@ -94,13 +102,25 @@ def make_video(script_data):
                    method='caption', size=(800, None)).set_position('center').set_duration(audio.duration)
     
     final = CompositeVideoClip([final_video, txt])
-    final.write_videofile("final_output.mp4", fps=24, codec="libx264", audio_codec="aac")
-    return "final_output.mp4"
+    output_name = "final_output.mp4"
+    final.write_videofile(output_name, fps=24, codec="libx264", audio_codec="aac")
+    
+    # Cleanup temporary files to keep the workspace clean
+    for f in temp_files:
+        try: os.remove(f)
+        except: pass
+    try: os.remove("voice.mp3")
+    except: pass
+    
+    return output_name
 
 if __name__ == "__main__":
-    print("Step 1: Script")
+    print("Step 1: Generating Script with Gemini 1.5 Flash...")
     data = get_script()
     if data:
-        print(f"Step 2: Video for {data['topic']}")
+        print(f"Step 2: Creating Video for: {data['topic']}")
         res = make_video(data)
-        print(f"Result: {res}")
+        if res:
+            print(f"SUCCESS: Video is ready at {res}")
+    else:
+        print("FAILED: Check your Gemini API Key or Internet connection.")
